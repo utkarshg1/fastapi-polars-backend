@@ -15,7 +15,7 @@ This application allows users to upload CSV files, get dataset summaries, and pe
 ## Folder Structure
 
 ```
-backend/
+fastapi-polars-backend/
 ├── api/                 # API routes
 │   ├── aggregation.py
 │   ├── summary.py
@@ -40,8 +40,8 @@ backend/
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
-cd backend
+git clone https://github.com/utkarshg1/fastapi-polars-backend.git
+cd fastapi-polars-backend
 ```
 
 ### 2. Create and Activate Virtual Environment
