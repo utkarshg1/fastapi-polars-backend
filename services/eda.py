@@ -7,6 +7,7 @@ from schemas.eda import ColumnSummary, SummaryResponse
 
 def get_summary() -> SummaryResponse:
     df = get_df()
+    assert type(df) == pl.DataFrame
     num_rows = df.height
     num_columns = df.width
 
@@ -33,24 +34,30 @@ def aggregate_by_column(
         "sum", "mean", "min", "max", "count", "n_unique", "len", "median", "std"
     ],
 ):
-    df = get_df()
+    df = get_df(lazy=True)  # LazyFrame
+    if not isinstance(df, pl.LazyFrame):
+        raise HTTPException(status_code=500, detail="Expected a LazyFrame.")
 
-    if cat_col not in df.columns:
+    schema = df.collect_schema()  # {col: dtype}
+
+    # Column existence check
+    if cat_col not in schema:
         raise HTTPException(
             status_code=400, detail=f"Categorical column '{cat_col}' not found."
         )
-    if con_col not in df.columns:
+    if con_col not in schema:
         raise HTTPException(
             status_code=400, detail=f"Continuous column '{con_col}' not found."
         )
 
-    if df[cat_col].dtype not in (pl.Utf8, pl.Categorical):
+    # Type checks
+    if schema[cat_col] not in (pl.Utf8, pl.Categorical):
         raise HTTPException(
             status_code=400,
-            detail=f"Column '{cat_col}' must be a string or categorical for grouping.",
+            detail=f"Column '{cat_col}' must be string or categorical for grouping.",
         )
 
-    if df[con_col].dtype not in (
+    if schema[con_col] not in (
         pl.Float64,
         pl.Float32,
         pl.Int64,
@@ -63,6 +70,7 @@ def aggregate_by_column(
             detail=f"Column '{con_col}' must be numeric for aggregation.",
         )
 
+    # Supported aggregations
     supported_aggs = {
         "sum": pl.sum,
         "mean": pl.mean,
@@ -79,8 +87,9 @@ def aggregate_by_column(
     result = (
         df.group_by(cat_col)
         .agg([supported_aggs[agg_func](con_col).alias(agg_col_name)])
-        .with_columns([pl.col(agg_col_name).round(2)])
+        .with_columns(pl.col(agg_col_name).round(2))
         .sort(agg_col_name, descending=True)
+        .collect()  # 🚀 Execute lazy pipeline
     )
 
     return {
